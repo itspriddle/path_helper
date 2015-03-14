@@ -103,13 +103,13 @@ char* read_segment(const char* line, size_t len) {
 // of the given environment variable, adding the contents
 // of the default file and files in the path directory.
 
-char* construct_path(char* env_var, char* defaults_path, char* dir_path) {
+char* construct_path(char* env_var, char* defaults_path, char* dir_path, char* local_path) {
   FTS* fts;
   FTSENT* ent;
 
   char* result = calloc(sizeof(char), 1);
 
-  char* dirpathv[] = { defaults_path, dir_path, NULL };
+  char* dirpathv[] = { defaults_path, dir_path, local_path, NULL };
   fts = fts_open(dirpathv, FTS_PHYSICAL | FTS_XDEV, NULL);
   if (!fts) {
     perror(dir_path);
@@ -180,13 +180,23 @@ int main(int argc, char* argv[]) {
   if (argc == 2 && strcmp(argv[1], "-c") == 0) style = STYLE_CSH;
   if (argc == 2 && strcmp(argv[1], "-s") == 0) style = STYLE_SH;
 
-  char* path = construct_path("PATH", "/etc/paths", "/etc/paths.d");
+  char* home = getenv("HOME");
+  int homelen = strlen(home);
+
+  char homepaths[homelen + 6];
+  strcpy(homepaths, home);
+  strcat(homepaths, "/.paths");
+
+  char* path = construct_path("PATH", "/etc/paths", "/etc/paths.d", homepaths);
   char* manpath = NULL;
 
   // only adjust manpath if already set
   int do_manpath = (getenv("MANPATH") != NULL);
   if (do_manpath) {
-    manpath = construct_path("MANPATH", "/etc/manpaths", "/etc/manpaths.d");
+    char homemanpaths[homelen + 9];
+    strcpy(homemanpaths, home);
+    strcat(homemanpaths, "/.manpaths");
+    manpath = construct_path("MANPATH", homemanpaths, "/etc/manpaths", "/etc/manpaths.d");
   }
 
   if (style == STYLE_CSH) {
